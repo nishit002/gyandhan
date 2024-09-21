@@ -14,9 +14,8 @@ def filter_data(df, college=None, course=None):
     if course:
         df = df[df['Course_name'] == course]
     
-    # Remove columns with all NA or 0 values
+    # Remove columns with all NA values, but keep those with some valid data
     df = df.dropna(axis=1, how='all')
-    df = df.loc[:, (df != 0).any(axis=0)]
     
     # Transpose the dataframe to display headers as rows
     df = df.T.reset_index()
@@ -45,14 +44,26 @@ def df_to_word(df):
     buffer.seek(0)
     return buffer
 
-# Function to plot a chart based on data
+# Function to convert relevant columns to numeric
+def convert_to_numeric(df, columns):
+    for col in columns:
+        df[col] = pd.to_numeric(df[col], errors='coerce')
+    return df
+
+# Updated function to plot a chart based on data
 def plot_chart(df, column):
-    plt.figure(figsize=(10, 6))
-    df[column].dropna().plot(kind='bar', color='skyblue')
-    plt.title(f'Distribution of {column}')
-    plt.xlabel(column)
-    plt.ylabel('Values')
-    st.pyplot(plt)
+    # Drop any NaN values and check if the column has valid data to plot
+    valid_data = df[column].dropna()
+    
+    if not valid_data.empty:
+        plt.figure(figsize=(10, 6))
+        valid_data.plot(kind='bar', color='skyblue')
+        plt.title(f'Distribution of {column}')
+        plt.xlabel(column)
+        plt.ylabel('Values')
+        st.pyplot(plt)
+    else:
+        st.write(f"No valid data to plot for '{column}'.")
 
 # Streamlit app
 st.set_page_config(layout="wide")  # Wide layout for better display
@@ -66,6 +77,10 @@ uploaded_file = st.sidebar.file_uploader("Upload your Excel file", type=['xlsx']
 if uploaded_file is not None:
     # Read Excel file
     df = pd.read_excel(uploaded_file)
+
+    # Convert specific columns to numeric (assume these are the numeric ones)
+    numeric_columns = ['Fees', 'Duration', 'TOEFL', 'IELTS', 'PTE']
+    df = convert_to_numeric(df, numeric_columns)
 
     # Display available options for filtering
     college_options = df['college'].dropna().unique()
@@ -94,10 +109,13 @@ if uploaded_file is not None:
 
         # Adding a chart for visualization
         st.header("Data Visualization")
-        chart_column = st.selectbox('Select column for chart:', options=['Fees', 'Duration', 'TOEFL', 'IELTS'])
-        if chart_column in filtered_data.columns:
+
+        # List the numeric columns available for chart
+        numeric_columns = df.select_dtypes(include='number').columns.tolist()
+        if numeric_columns:
+            chart_column = st.selectbox('Select column for chart:', options=numeric_columns)
             plot_chart(df, chart_column)
         else:
-            st.write(f"'{chart_column}' not found in filtered data.")
+            st.write("No numeric data available for charting.")
     else:
         st.write("No data available for the selected college and course.")
