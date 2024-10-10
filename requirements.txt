@@ -3,3 +3,6 @@ pandas
 python-docx
 matplotlib
 openpyxl
+plotly
+jinja2
+base64
